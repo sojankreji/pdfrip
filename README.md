@@ -28,7 +28,10 @@
 ## Features
 
 - **Fast:** Performs about 50k-100k+ passwords per second utilizing full CPU cores.
+- **GPU Acceleration:** Optional GPU support for NVIDIA (CUDA), Apple Silicon (Metal), and AMD/Intel (OpenCL) GPUs. See [GPU_SUPPORT.md](GPU_SUPPORT.md) and [CUDA_SUPPORT.md](CUDA_SUPPORT.md) for details.
 - **Custom Query Builder:** You can write your own queries like `STRING{69-420}` which would generate and use a wordlist with the full number range.
+- **Alphabetical Patterns:** Support for character patterns like `{[A-Z]5}` for uppercase letters, `{[a-z]3}` for lowercase, `{[A-Za-z]4}` for mixed case.
+- **Multiple Variables:** Support for complex patterns with multiple variable blocks like `USER{[A-Z]2}_{[0-9]3}`.
 - **Date Bruteforce:** You can pass in a year which would bruteforce all 365 days of the year in `DDMMYYYY` format which is a pretty commonly used password format for PDFs.
 - **Number Bruteforce:** Just give a number range like `5000-100000` and it would bruteforce with the whole range.
 - **Default Bruteforce:** Specify a maximum and optionally a minimum length for the password search and all passwords of length 4 up to the specified maximum consisting of letters and numbers (`a-zA-Z0-9`) will be tried
@@ -53,12 +56,32 @@ If you don't have cargo or rust installed, you can download a binary from the [r
 * [Rust](https://rust-lang.org/tools/install)
 * Cargo (Automatically installed when installing Rust)
 * A C linker (Only for Linux, generally comes pre-installed)
+* (Optional) [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) for CUDA GPU support
 
 ```
 $ git clone https://github.com/mufeedvh/pdfrip.git
 $ cd pdfrip/
 $ cargo build --release
 ```
+
+### Build with GPU Support
+
+**NVIDIA CUDA GPUs** (Linux/Windows with CUDA Toolkit installed):
+```bash
+$ cargo build --release --features cuda-gpu
+```
+
+**Apple Silicon Macs** (M1/M2/M3/M4/M5):
+```bash
+$ cargo build --release --features metal-gpu
+```
+
+**AMD/Intel GPUs** (OpenCL):
+```bash
+$ cargo build --release --features gpu
+```
+
+See [CUDA_SUPPORT.md](CUDA_SUPPORT.md) for detailed CUDA setup instructions.
 
 The first command clones this repository into your local machine and the last two commands enters the directory and builds the source in release mode.
 
@@ -93,6 +116,18 @@ Build a custom query to generate a wordlist: (useful when you know the password 
     $ pdfrip -f encrypted.pdf custom-query ALICE{1000-9999}
 
     $ pdfrip -f encrypted.pdf custom-query DOC-ID{0-99}-FILE
+
+Use alphabetical patterns in custom queries:
+
+    $ pdfrip -f encrypted.pdf custom-query 'PASS{[A-Z]4}'
+    
+    $ pdfrip -f encrypted.pdf custom-query 'user{[a-z]3}{[0-9]2}'
+    
+    $ pdfrip -f encrypted.pdf custom-query '{[A-Z]2}1477{[A-Z]1}'
+
+Enable GPU acceleration:
+
+    $ pdfrip -f encrypted.pdf --use-gpu custom-query 'SECURE{[A-Z]5}'
 
 Enable preceding zeros for custom queries: (which would make `{10-5000}` to `{0010-5000}` matching the end range's digits)
 

@@ -17,6 +17,9 @@ pub mod gpu;
 #[cfg(all(target_os = "macos", feature = "metal-gpu"))]
 pub mod metal_gpu;
 
+#[cfg(feature = "cuda-gpu")]
+pub mod cuda_gpu;
+
 // We will run a SPMC layout where a single producer produces passwords
 // consumed by multiple workers. This ensures there is a buffer
 // so the queue won't be consumed before the producer has time to wake up
@@ -150,21 +153,34 @@ fn crack_file_cpu(
     Ok(found_password)
 }
 
-#[cfg(any(feature = "gpu", all(target_os = "macos", feature = "metal-gpu")))]
+#[cfg(any(feature = "gpu", all(target_os = "macos", feature = "metal-gpu"), feature = "cuda-gpu"))]
 /// GPU-accelerated password cracking
 pub fn crack_file_gpu(
     cracker: PDFCracker,
     producer: Box<dyn Producer>,
     callback: Box<dyn Fn()>,
 ) -> anyhow::Result<Option<Vec<u8>>> {
-    // Try Metal GPU first on macOS if available
+    // Try CUDA GPU first if available (NVIDIA GPUs)
+    #[cfg(feature = "cuda-gpu")]
+    {
+        info!("Attempting CUDA GPU acceleration for NVIDIA GPUs...");
+        match crack_file_cuda_gpu(cracker.clone(), producer, callback) {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                error!("CUDA GPU failed: {}. Trying other GPU options...", e);
+                // Continue to try other GPU options
+            }
+        }
+    }
+    
+    // Try Metal GPU on macOS if available (Apple Silicon)
     #[cfg(all(target_os = "macos", feature = "metal-gpu"))]
     {
         info!("Attempting Metal GPU acceleration for Apple Silicon...");
         return crack_file_metal_gpu(cracker, producer, callback);
     }
     
-    // Fall back to OpenCL
+    // Fall back to OpenCL (cross-platform)
     #[cfg(feature = "gpu")]
     {
         use crate::gpu::GpuCracker;
@@ -282,6 +298,63 @@ pub fn crack_file_metal_gpu(
             }
             Err(e) => {
                 error!("Metal GPU error: {}", e);
+                return Err(e);
+            }
+        }
+    }
+    
+    Ok(None)
+}
+
+#[cfg(feature = "cuda-gpu")]
+/// CUDA GPU-accelerated password cracking for NVIDIA GPUs
+pub fn crack_file_cuda_gpu(
+    cracker: PDFCracker,
+    mut producer: Box<dyn Producer>,
+    callback: Box<dyn Fn()>,
+) -> anyhow::Result<Option<Vec<u8>>> {
+    use crate::cuda_gpu::CudaGpuCracker;
+    
+    let mut cuda_cracker = CudaGpuCracker::new(&cracker)?;
+    let batch_size = cuda_cracker.batch_size();
+    
+    info!("Starting CUDA GPU password cracking with batch size {}...", batch_size);
+    
+    let mut batch = Vec::with_capacity(batch_size);
+    
+    loop {
+        // Collect batch of passwords
+        while batch.len() < batch_size {
+            match producer.next() {
+                Ok(Some(password)) => {
+                    batch.push(password);
+                    callback();
+                }
+                Ok(None) => {
+                    break;
+                }
+                Err(error_msg) => {
+                    error!("Error occurred while generating passwords: {error_msg}");
+                    break;
+                }
+            }
+        }
+        
+        if batch.is_empty() {
+            break;
+        }
+        
+        // Try batch on CUDA GPU
+        match cuda_cracker.attempt_batch(&batch) {
+            Ok(Some(password)) => {
+                info!("Password found using CUDA GPU!");
+                return Ok(Some(password));
+            }
+            Ok(None) => {
+                batch.clear();
+            }
+            Err(e) => {
+                error!("CUDA GPU error: {}", e);
                 return Err(e);
             }
         }

@@ -49,6 +49,7 @@ ocl = { version = "0.19", optional = true }
 default = []
 gpu = ["ocl", "engine/gpu", "cli-interface/gpu"]
 metal-gpu = ["engine/metal-gpu", "cli-interface/metal-gpu"]
+cuda-gpu = ["engine/cuda-gpu"]
 
 [profile.release]
 lto = 'thin'

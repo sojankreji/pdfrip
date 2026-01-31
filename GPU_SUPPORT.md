@@ -1,6 +1,18 @@
 # GPU Acceleration Support
 
-PDFRip now includes **optional GPU acceleration** support using OpenCL.
+PDFRip includes **optional GPU acceleration** support for multiple GPU architectures:
+
+- **NVIDIA GPUs** - CUDA acceleration (see [CUDA_SUPPORT.md](CUDA_SUPPORT.md))
+- **Apple Silicon** - Metal acceleration (M1/M2/M3/M4/M5)
+- **AMD/Intel GPUs** - OpenCL acceleration (cross-platform)
+
+## GPU Support Matrix
+
+| GPU Type | Feature Flag | Platform | Build Command |
+|----------|-------------|----------|---------------|
+| NVIDIA (CUDA) | `cuda-gpu` | Linux, Windows | `cargo build --release --features cuda-gpu` |
+| Apple Silicon (Metal) | `metal-gpu` | macOS only | `cargo build --release --features metal-gpu` |
+| AMD/Intel (OpenCL) | `gpu` | Cross-platform | `cargo build --release --features gpu` |
 
 ## Important Notes
 
@@ -13,9 +25,46 @@ PDF password cracking involves complex cryptographic operations (RC4, AES-128, A
 
 **CPU-based multi-threading is often more efficient for PDF password cracking.**
 
+However, GPU acceleration can provide benefits for:
+- Very large password search spaces (millions+ of combinations)
+- Simple password patterns that allow batch processing
+- Systems with high-end GPUs and limited CPU cores
+
+## CUDA GPU Support (NVIDIA)
+
+For detailed NVIDIA CUDA setup and usage, see **[CUDA_SUPPORT.md](CUDA_SUPPORT.md)**.
+
+Quick start:
+1. Install [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)
+2. Build: `cargo build --release --features cuda-gpu`
+3. Run: `./target/release/pdfrip -f file.pdf --use-gpu custom-query 'PASS{[A-Z]4}'`
+
+## Metal GPU Support (Apple Silicon)
+
+Apple Silicon Macs (M1/M2/M3/M4/M5) have native Metal acceleration support.
+
+### Building
+```bash
+cargo build --release --features metal-gpu
+```
+
+### Usage
+```bash
+./target/release/pdfrip -f document.pdf --use-gpu custom-query 'SECRET{[0-9]6}'
+```
+
+The Metal implementation automatically:
+- Detects Apple Silicon GPU
+- Optimizes batch sizes for unified memory architecture
+- Uses multi-threaded processing (10+ threads on M-series chips)
+
+## OpenCL GPU Support (Cross-platform)
+
+OpenCL provides cross-platform GPU acceleration for AMD, Intel, and NVIDIA GPUs.
+
 ## Building with GPU Support
 
-### Prerequisites
+### Prerequisites for OpenCL
 
 1. **OpenCL Runtime** - Install OpenCL drivers for your GPU:
    - **NVIDIA**: CUDA Toolkit (includes OpenCL)
@@ -36,7 +85,7 @@ PDF password cracking involves complex cryptographic operations (RC4, AES-128, A
 
 ### Compilation
 
-Build with GPU feature enabled:
+Build with OpenCL GPU feature enabled:
 
 ```bash
 cargo build --release --features gpu
