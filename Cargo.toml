@@ -27,6 +27,8 @@ indicatif = "0.17"
 crossbeam = "0.8.2"
 clap = { version = "4.4.13", features = ["derive"] }
 colored = "2.0.4"
+md5 = "0.7.0"
+sha2 = "0.10"
 
 
 [package]
@@ -40,6 +42,13 @@ authors.workspace = true
 cli-interface.workspace = true
 anyhow.workspace = true
 pretty_env_logger = "0.5.0"
+engine.workspace = true
+ocl = { version = "0.19", optional = true }
+
+[features]
+default = []
+gpu = ["ocl", "engine/gpu", "cli-interface/gpu"]
+metal-gpu = ["engine/metal-gpu", "cli-interface/metal-gpu"]
 
 [profile.release]
 lto = 'thin'

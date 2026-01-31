@@ -59,6 +59,7 @@ fn wrapper(
     no_workers: usize,
     cracker: PDFCracker,
     producer: Box<dyn Producer>,
+    use_gpu: bool,
 ) -> anyhow::Result<Option<Vec<u8>>> {
     let progress_bar = ProgressBar::new(producer.size() as u64);
     progress_bar.set_style(ProgressStyle::default_bar()
@@ -71,7 +72,22 @@ fn wrapper(
         bar.inc(1);
     };
 
-    let res = engine::crack_file(no_workers, cracker, producer, Box::from(callback));
+    #[cfg(any(feature = "gpu", feature = "metal-gpu"))]
+    let res = if use_gpu {
+        info!("GPU acceleration requested");
+        engine::crack_file_gpu(cracker, producer, Box::from(callback))
+    } else {
+        engine::crack_file(no_workers, cracker, producer, Box::from(callback))
+    };
+    
+    #[cfg(not(any(feature = "gpu", feature = "metal-gpu")))]
+    let res = {
+        if use_gpu {
+            log::warn!("GPU acceleration requested but not compiled in. Rebuild with --features gpu or --features metal-gpu to enable.");
+        }
+        engine::crack_file(no_workers, cracker, producer, Box::from(callback))
+    };
+    
     progress_bar.finish();
 
     res
@@ -83,11 +99,13 @@ pub fn entrypoint(args: Arguments) -> Result {
     let producer: Box<dyn Producer> = select_producer(args.subcommand);
 
     let filename = args.filename;
+    let use_gpu = args.use_gpu;
 
     let res = wrapper(
         args.number_of_threads,
         PDFCracker::from_file(&filename).context(format!("path: {}", filename))?,
         producer,
+        use_gpu,
     )?;
 
     match res {

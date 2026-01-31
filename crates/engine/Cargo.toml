@@ -12,3 +12,15 @@ cracker.workspace = true
 log.workspace = true
 anyhow.workspace = true
 crossbeam.workspace = true
+md5.workspace = true
+sha2.workspace = true
+ocl = { version = "0.19", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = { version = "0.29", optional = true }
+objc = { version = "0.2", optional = true }
+
+[features]
+default = []
+gpu = ["ocl"]
+metal-gpu = ["metal", "objc"]

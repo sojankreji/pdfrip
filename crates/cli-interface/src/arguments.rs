@@ -66,6 +66,10 @@ pub struct Arguments {
     /// The filename of the PDF
     pub filename: String,
 
+    #[clap(long)]
+    /// Enable GPU acceleration (requires compilation with --features gpu)
+    pub use_gpu: bool,
+
     #[command(subcommand)]
     /// Bruteforcing method
     pub subcommand: Method,

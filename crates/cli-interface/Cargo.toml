@@ -12,3 +12,8 @@ engine.workspace = true
 anyhow.workspace = true
 indicatif.workspace = true
 log.workspace = true
+
+[features]
+default = []
+gpu = ["engine/gpu"]
+metal-gpu = ["engine/metal-gpu"]
