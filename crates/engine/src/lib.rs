@@ -69,15 +69,17 @@ pub fn crack_file(
     let mut success = None;
 
     loop {
+        // Check for success first before producing more passwords
         match success_reader.try_recv() {
             Ok(password) => {
                 success = Some(password);
+                info!("Password found! Stopping password generation.");
                 break;
             }
             Err(e) => {
                 match e {
                     TryRecvError::Empty => {
-                        // This is fine *lit*
+                        // This is fine, no success yet, continue
                     }
                     TryRecvError::Disconnected => {
                         // All threads have died. Wtf?
@@ -89,11 +91,13 @@ pub fn crack_file(
             }
         }
 
+        // Only produce next password if we haven't found a match yet
         match producer.next() {
             Ok(Some(password)) => {
                 if sender.send(password).is_err() {
                     // This should only happen if their reciever is closed.
                     error!("unable to send next password since channel is closed");
+                    break;
                 }
                 callback()
             }
@@ -114,6 +118,7 @@ pub fn crack_file(
     let found_password = match success {
         Some(result) => Some(result),
         None => {
+            // Wait for any worker threads to report success
             match success_reader.recv() {
                 Ok(result) => Some(result),
                 Err(e) => {
